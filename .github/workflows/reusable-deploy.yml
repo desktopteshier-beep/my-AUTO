@@ -1,0 +1,40 @@
+name: Reusable build, test, and deploy
+on:
+  workflow_call:
+    inputs:
+      runtime: { type: string, default: node, required: false }
+      node-version: { type: string, default: '20', required: false }
+      build-command: { type: string, default: 'npm run build', required: false }
+      test-command: { type: string, default: 'npm test --if-present', required: false }
+      deploy-target: { type: string, required: true } # vercel | aws
+      cdk-deploy-command: { type: string, required: false } # e.g. npx cdk deploy --require-approval never
+      working-directory: { type: string, default: '.', required: false }
+      aws-region: { type: string, required: false }
+      aws-role-to-assume: { type: string, required: false }
+      vercel-org-id: { type: string, required: false }
+      vercel-project-id: { type: string, required: false }
+    secrets:
+      VERCEL_TOKEN: { required: false }
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
+    defaults: { run: { working-directory: ${{ inputs.working-directory }} } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: ${{ inputs.node-version }}, cache: npm, cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json }
+      - run: npm ci
+      - run: ${{ inputs.test-command }}
+      - run: ${{ inputs.build-command }}
+      - name: Configure AWS credentials (OIDC)
+        if: inputs.deploy-target == 'aws'
+        uses: aws-actions/configure-aws-credentials@v4
+        with: { role-to-assume: ${{ inputs.aws-role-to-assume }}, aws-region: ${{ inputs.aws-region }} }
+      - name: Deploy AWS with CDK
+        if: inputs.deploy-target == 'aws'
+        run: ${{ inputs.cdk-deploy-command }}
+      - name: Deploy Vercel
+        if: inputs.deploy-target == 'vercel'
+        run: npx vercel@latest deploy --prod --token="$VERCEL_TOKEN"
+        env: { VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}, VERCEL_ORG_ID: ${{ inputs.vercel-org-id }}, VERCEL_PROJECT_ID: ${{ inputs.vercel-project-id }} }
