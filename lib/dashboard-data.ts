@@ -6,7 +6,7 @@ type Project = {
   sentry_project_slug: string | null; site_id: string; sites: { name: string; domain: string }[]
 }
 export type ProjectHealth = Project & { deploy: string; uptime: string; errors: number | null }
-export type SiteActivity = { id: string; event_type: string; user_email: string | null; anonymous_id: string | null; path: string | null; created_at: string; sites: { name: string } | null }
+export type SiteActivity = { id: string; site_id: string; event_type: string; user_email: string | null; anonymous_id: string | null; path: string | null; created_at: string; sites: { name: string } | null }
 
 const subscriptionFields = 'id,plan,payment_status,access_override,renewal_date,mrr_cents,currency,users(email),sites(name)'
 const legacySubscriptionFields = 'id,plan,payment_status,renewal_date,users(email),sites(name)'
@@ -61,8 +61,8 @@ export async function getDashboardData() {
     db.from('projects').select('id,name,github_owner,github_repo,deploy_target,monitoring_provider,monitoring_check_id,monitoring_endpoint,sentry_project_slug,site_id,sites(name,domain)').order('name'),
     getSubscriptions(db),
     db.from('sites').select('id,name,domain').order('name'),
-    db.from('project_access').select('id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false }),
-    db.from('site_activity').select('id,event_type,user_email,anonymous_id,path,created_at,sites(name)').order('created_at', { ascending: false }).limit(100),
+    db.from('project_access').select('id,site_id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false }),
+    db.from('site_activity').select('id,site_id,event_type,user_email,anonymous_id,path,created_at,sites(name)').order('created_at', { ascending: false }).limit(100),
     db.from('users').select('id,email,created_at,subscriptions(plan,payment_status,sites(name))').order('created_at', { ascending: false }),
   ])
   // A newly deployed dashboard can arrive before its Supabase migration is run.
