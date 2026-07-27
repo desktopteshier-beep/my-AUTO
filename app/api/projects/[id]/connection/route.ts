@@ -16,11 +16,15 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (!await isAdmin(request)) return NextResponse.json({ error: 'Not authorized.' }, { status: 403 })
   const { supabaseUrl, serviceRoleKey } = await request.json() as { supabaseUrl?: string; serviceRoleKey?: string }
   if (!supabaseUrl?.trim()) return NextResponse.json({ error: 'Supabase URL is required.' }, { status: 400 })
-  const update: { external_supabase_url: string; external_service_role_key_enc?: string } = { external_supabase_url: supabaseUrl.trim() }
-  if (serviceRoleKey?.trim()) update.external_service_role_key_enc = await encryptSecret(serviceRoleKey.trim())
-  const { error } = await getAdminSupabase().from('projects').update(update).eq('id', params.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-  return NextResponse.json({ ok: true })
+  try {
+    const update: { external_supabase_url: string; external_service_role_key_enc?: string } = { external_supabase_url: supabaseUrl.trim() }
+    if (serviceRoleKey?.trim()) update.external_service_role_key_enc = await encryptSecret(serviceRoleKey.trim())
+    const { error } = await getAdminSupabase().from('projects').update(update).eq('id', params.id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ ok: true })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message ?? 'Could not save this connection.' }, { status: 500 })
+  }
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {

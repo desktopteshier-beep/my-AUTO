@@ -10,7 +10,21 @@ function Status({ value }: { value: string }) { const state = kind(value); const
 export function ProjectTable({ projects, focus = 'all' }: { projects: Project[]; focus?: 'deploy' | 'monitoring' | 'all' }) {
   const router = useRouter(); const [selected, setSelected] = useState<Project | null>(null); const [index, setIndex] = useState(-1); const [editing, setEditing] = useState(false); const [message, setMessage] = useState(''); const [saving, setSaving] = useState(false)
   useEffect(() => { const onKey = (event: KeyboardEvent) => { if (!projects.length || event.metaKey || event.ctrlKey) return; if (event.key === 'ArrowDown') { event.preventDefault(); setIndex(i => Math.min(projects.length - 1, i + 1)) } else if (event.key === 'ArrowUp') { event.preventDefault(); setIndex(i => Math.max(0, i - 1)) } else if (event.key === 'Enter' && index >= 0) setSelected(projects[index]); else if (event.key === 'Escape') { setSelected(null); setEditing(false) } }; addEventListener('keydown', onKey); return () => removeEventListener('keydown', onKey) }, [projects, index])
-  async function save(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); if (!selected) return; setSaving(true); setMessage(''); const values = Object.fromEntries(new FormData(event.currentTarget).entries()); const response = await fetch(`/api/projects/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) }); const result = await response.json(); setSaving(false); if (!response.ok) return setMessage(result.error ?? 'Unable to update project.'); setEditing(false); setSelected(null); router.refresh() }
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!selected) return
+    setSaving(true); setMessage('')
+    try {
+      const values = Object.fromEntries(new FormData(event.currentTarget).entries())
+      const response = await fetch(`/api/projects/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) return setMessage(result.error ?? `Unable to update project (${response.status}).`)
+      setEditing(false); setSelected(null); router.refresh()
+    } catch {
+      setMessage('Could not reach the server. Check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
   const emptyCopy = focus === 'deploy' ? { icon: '⇡', title: 'No projects deployed yet', body: 'Add your first site, app, or backend to start tracking its deploys.' } : focus === 'monitoring' ? { icon: '◉', title: 'Nothing to monitor yet', body: 'Add a project with a health URL to start tracking uptime and errors.' } : { icon: 'OK', title: 'No projects yet', body: 'Add your first site, app, or backend to start monitoring it.' }
   return <>
     <div className="table-wrap"><table><thead><tr>{focus === 'deploy' ? <><th>Project</th><th>Deploy target</th><th>Last deploy</th><th>Repository</th></> : focus === 'monitoring' ? <><th>Project</th><th>Domain</th><th>Uptime</th><th>Error count</th></> : <><th>Project</th><th>Last deploy</th><th>Uptime</th><th>Error count</th></>}</tr></thead><tbody>{projects.map((project, row) => <tr key={project.id} className={row === index ? 'row-active' : ''} onClick={() => { setSelected(project); setEditing(false) }}>

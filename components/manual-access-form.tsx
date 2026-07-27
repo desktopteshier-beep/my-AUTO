@@ -28,10 +28,16 @@ export function ManualAccessForm({ sites }: { sites: { id: string; name: string;
 
   async function submit(form: FormData) {
     setSaving(true); setMessage('')
-    const response = await fetch('/api/project-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: form.get('siteId'), email: form.get('email'), plan: form.get('plan'), paymentStatus: form.get('paymentStatus'), accessOverride: form.get('accessOverride') }) })
-    const data = await response.json(); setSaving(false)
-    if (!response.ok) return setMessage(data.error ?? 'Could not save access.')
-    setMessage('Saved. This user can now be checked by the connected app.'); router.refresh()
+    try {
+      const response = await fetch('/api/project-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: form.get('siteId'), email: form.get('email'), plan: form.get('plan'), paymentStatus: form.get('paymentStatus'), accessOverride: form.get('accessOverride') }) })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) return setMessage(data.error ?? `Could not save access (${response.status}).`)
+      setMessage('Saved. This user can now be checked by the connected app.'); router.refresh()
+    } catch {
+      setMessage('Could not reach the server. Check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const hint = !siteId ? '' : rosterLoading ? 'Looking up this project’s users…' : roster.length

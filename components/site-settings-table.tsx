@@ -15,12 +15,17 @@ export function SiteSettingsTable({ sites }: { sites: Site[] }) {
   async function save(site: Site, event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSaving(true); setMessage('')
-    const values = Object.fromEntries(new FormData(event.currentTarget).entries())
-    const response = await fetch(`/api/sites/${site.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) })
-    const result = await response.json()
-    setSaving(false)
-    if (!response.ok) return setMessage(result.error ?? 'Unable to update site.')
-    setEditing(null); router.refresh()
+    try {
+      const values = Object.fromEntries(new FormData(event.currentTarget).entries())
+      const response = await fetch(`/api/sites/${site.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) return setMessage(result.error ?? `Unable to update site (${response.status}).`)
+      setEditing(null); router.refresh()
+    } catch {
+      setMessage('Could not reach the server. Check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
   }
   async function copyKey(site: Site) {
     await navigator.clipboard.writeText(site.tracking_key)

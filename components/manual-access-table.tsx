@@ -9,11 +9,16 @@ export function ManualAccessTable({ entries, activity }: { entries: Access[]; ac
   const router = useRouter(); const [busy, setBusy] = useState<string | null>(null)
   async function toggle(item: Access) {
     setBusy(item.id)
-    const accessOverride = item.access_override === 'paused' ? 'automatic' : 'paused'
-    const response = await fetch(`/api/project-access/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessOverride }) })
-    setBusy(null)
-    if (!response.ok) return alert('Could not update access. Check dashboard permissions.')
-    router.refresh()
+    try {
+      const accessOverride = item.access_override === 'paused' ? 'automatic' : 'paused'
+      const response = await fetch(`/api/project-access/${item.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessOverride }) })
+      if (!response.ok) return alert('Could not update access. Check dashboard permissions.')
+      router.refresh()
+    } catch {
+      alert('Could not reach the server. Check your connection and try again.')
+    } finally {
+      setBusy(null)
+    }
   }
   return <div className="table-wrap"><table><thead><tr><th>User email</th><th>Project</th><th>Plan</th><th>Payment</th><th>Last use</th><th>Access</th></tr></thead><tbody>{entries.map(item => {
     const lastUse = activity.find(event => event.site_id === item.site_id && event.user_email?.toLowerCase() === item.email.toLowerCase())
