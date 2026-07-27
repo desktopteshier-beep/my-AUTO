@@ -4,6 +4,8 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { DashboardTools } from '@/components/dashboard-tools'
 import { ProjectTable } from '@/components/project-table'
 import { SubscriptionTable } from '@/components/subscription-table'
+import { ManualAccessForm } from '@/components/manual-access-form'
+import { ManualAccessTable } from '@/components/manual-access-table'
 
 type StatusKind = 'healthy' | 'warning' | 'working'
 
@@ -20,7 +22,7 @@ function Status({ value }: { value: string }) {
 
 export default async function Dashboard({ searchParams }: { searchParams: { site?: string; plan?: string } }) {
   await requireDashboardAdmin()
-  const { projects, subscriptions } = await getDashboardData()
+  const { projects, subscriptions, sites: allSites, manualAccess } = await getDashboardData()
   const sites = [...new Set(subscriptions.map((s: any) => s.sites?.name).filter(Boolean))] as string[]
   const plans = [...new Set(subscriptions.map((s: any) => s.plan).filter(Boolean))] as string[]
   const filtered = subscriptions.filter((s: any) => (!searchParams.site || s.sites?.name === searchParams.site) && (!searchParams.plan || s.plan === searchParams.plan))
@@ -34,6 +36,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { site
       <section className="metrics" aria-label="Portfolio metrics"><article><span>Projects</span><b>{projects.length}</b></article><article><span>Uptime average</span><b className="healthy-number">{uptimeAverage}</b></article><article><span>Active errors</span><b className={activeErrors ? 'warning-number' : ''}>{activeErrors}</b></article><article><span>MRR</span><b>{mrr ? `$${(mrr / 100).toLocaleString()}` : '—'}</b></article></section>
       <section id="projects"><div className="section-heading"><div><h2>Projects</h2><p>Deploy and service health · use ↑ ↓ and Enter to inspect</p></div></div><ProjectTable projects={projects} /></section>
       <section id="users"><div className="section-heading"><div><h2>Users and billing</h2><p>Pause access per site without disabling the user's central account.</p></div><form className="filters"><select name="site" defaultValue={searchParams.site ?? ''} aria-label="Filter by site"><option value="">All sites</option>{sites.map(site => <option key={site}>{site}</option>)}</select><select name="plan" defaultValue={searchParams.plan ?? ''} aria-label="Filter by plan"><option value="">All plans</option>{plans.map(plan => <option key={plan}>{plan}</option>)}</select><button className="secondary">Filter</button></form></div><SubscriptionTable subscriptions={filtered as any[]} /></section>
+      <section id="manual-access"><div className="section-heading"><div><h2>Manual project access</h2><p>For existing apps such as myShopCare. Set a person paid, unpaid, or paused by email.</p></div></div><ManualAccessForm sites={allSites as any[]} /><ManualAccessTable entries={manualAccess as any[]} /></section>
     </main>
   </div>
 }
