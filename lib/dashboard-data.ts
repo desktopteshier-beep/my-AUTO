@@ -7,6 +7,30 @@ type Project = {
 }
 export type ProjectHealth = Project & { deploy: string; uptime: string; errors: number | null }
 
+const subscriptionFields = 'id,plan,payment_status,access_override,renewal_date,mrr_cents,currency,users(email),sites(name)'
+const legacySubscriptionFields = 'id,plan,payment_status,renewal_date,users(email),sites(name)'
+
+async function getSubscriptions(db: ReturnType<typeof getAdminSupabase>) {
+  const result = await db.from('subscriptions').select(subscriptionFields).order('updated_at', { ascending: false })
+  if (!result.error) return result
+
+  // Migrations 002 and 003 add these optional dashboard fields. During a rolling
+  // deploy, keep the overview available until the database migration is applied.
+  const missingOptionalField = /access_override|mrr_cents|currency/i.test(result.error.message)
+  if (!missingOptionalField) return result
+
+  const legacy = await db.from('subscriptions').select(legacySubscriptionFields).order('updated_at', { ascending: false })
+  return {
+    ...legacy,
+    data: legacy.data?.map(subscription => ({
+      ...subscription,
+      access_override: 'automatic',
+      mrr_cents: null,
+      currency: null,
+    })),
+  }
+}
+
 async function safeFetch(url: string, init: RequestInit = {}) {
   try { const r = await fetch(url, { ...init, cache: 'no-store' }); return r.ok ? r.json() : null } catch { return null }
 }
@@ -34,7 +58,7 @@ export async function getDashboardData() {
   const db = getAdminSupabase()
   const [{ data: projects, error: projectError }, { data: subscriptions, error: subscriptionError }, { data: sites, error: siteError }, { data: manualAccess, error: accessError }] = await Promise.all([
     db.from('projects').select('id,name,github_owner,github_repo,deploy_target,monitoring_provider,monitoring_check_id,monitoring_endpoint,sentry_project_slug,site_id,sites(name,domain)').order('name'),
-    db.from('subscriptions').select('id,plan,payment_status,access_override,renewal_date,mrr_cents,currency,users(email),sites(name)').order('updated_at', { ascending: false }),
+    getSubscriptions(db),
     db.from('sites').select('id,name,domain').order('name'),
     db.from('project_access').select('id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false }),
   ])
