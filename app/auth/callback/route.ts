@@ -5,7 +5,9 @@ import { cookies } from 'next/headers'
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
-  const response = NextResponse.redirect(new URL('/', url.origin))
+  const next = url.searchParams.get('next')
+  const destination = next?.startsWith('/') ? next : '/'
+  const response = NextResponse.redirect(new URL(destination, url.origin))
   if (!code) return NextResponse.redirect(new URL('/login?error=missing_code', url.origin))
 
   const cookieStore = cookies()
