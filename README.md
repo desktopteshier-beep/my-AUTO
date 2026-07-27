@@ -19,6 +19,20 @@ The migration intentionally does not expose subscription rows to browsers; a sin
 
 ## CI/CD reuse
 
+## See visitors and manually confirm payments
+
+Apply `supabase/migrations/202607270001_site_activity.sql`. In **Manual project access**, select the site and email, choose **Paid / active** to allow access, or **Unpaid / canceled** and **Pause access** to block it after a manual-payment check.
+
+To see visitor activity, use the site's `tracking_key` from the `sites` table. Store one random anonymous ID in the browser and send a beacon from each site. Do not send passwords, tokens, IP addresses, or other sensitive data. A trusted backend may add `userEmail` after it has authenticated a user.
+
+```ts
+navigator.sendBeacon('https://YOUR-DASHBOARD/api/activity', JSON.stringify({
+  siteKey: 'SITE_TRACKING_KEY', event: 'page_view', anonymousId, path: location.pathname,
+}))
+```
+
+The dashboard displays the newest 100 events.
+
 Reference `.github/workflows/reusable-deploy.yml` from each repository as shown in `.github/workflows/example-caller.yml`. AWS deploys use GitHub OIDC and a caller-provided CDK command; Vercel uses `VERCEL_TOKEN` via inherited secrets.
 
 ## Monitoring adapters
