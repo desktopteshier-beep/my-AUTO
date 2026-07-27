@@ -57,20 +57,21 @@ async function errorCount(project: Project) {
 }
 export async function getDashboardData() {
   const db = getAdminSupabase()
-  const [{ data: projects, error: projectError }, { data: subscriptions, error: subscriptionError }, { data: sites, error: siteError }, { data: manualAccess, error: accessError }, { data: activity, error: activityError }] = await Promise.all([
+  const [{ data: projects, error: projectError }, { data: subscriptions, error: subscriptionError }, { data: sites, error: siteError }, { data: manualAccess, error: accessError }, { data: activity, error: activityError }, { data: users, error: userError }] = await Promise.all([
     db.from('projects').select('id,name,github_owner,github_repo,deploy_target,monitoring_provider,monitoring_check_id,monitoring_endpoint,sentry_project_slug,site_id,sites(name,domain)').order('name'),
     getSubscriptions(db),
     db.from('sites').select('id,name,domain').order('name'),
     db.from('project_access').select('id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false }),
     db.from('site_activity').select('id,event_type,user_email,anonymous_id,path,created_at,sites(name)').order('created_at', { ascending: false }).limit(100),
+    db.from('users').select('id,email,created_at,subscriptions(plan,payment_status,sites(name))').order('created_at', { ascending: false }),
   ])
   // A newly deployed dashboard can arrive before its Supabase migration is run.
   // Keep the rest of the console usable in that short window; the manual-access
   // section becomes available as soon as migration 004 has been applied.
   const missingManualAccessTable = accessError?.code === '42P01'
   const missingActivityTable = activityError?.code === '42P01'
-  if (projectError || subscriptionError || siteError || (accessError && !missingManualAccessTable) || (activityError && !missingActivityTable)) throw projectError ?? subscriptionError ?? siteError ?? accessError ?? activityError
+  if (projectError || subscriptionError || siteError || userError || (accessError && !missingManualAccessTable) || (activityError && !missingActivityTable)) throw projectError ?? subscriptionError ?? siteError ?? userError ?? accessError ?? activityError
   const normalizedProjects = (projects ?? []).map((project: any) => ({ ...project, sites: Array.isArray(project.sites) ? project.sites : project.sites ? [project.sites] : [] })) as Project[]
   const health = await Promise.all(normalizedProjects.map(async project => ({ ...project, deploy: await deploymentState(project), uptime: await uptimeState(project), errors: await errorCount(project) })))
-  return { projects: health, subscriptions: subscriptions ?? [], sites: sites ?? [], manualAccess: manualAccess ?? [], activity: activity ?? [] }
+  return { projects: health, subscriptions: subscriptions ?? [], sites: sites ?? [], manualAccess: manualAccess ?? [], activity: activity ?? [], users: users ?? [] }
 }
