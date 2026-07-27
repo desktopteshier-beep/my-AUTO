@@ -3,6 +3,7 @@ import { requireDashboardAdmin } from '@/lib/auth'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { DashboardTools } from '@/components/dashboard-tools'
 import { ProjectTable } from '@/components/project-table'
+import { SubscriptionTable } from '@/components/subscription-table'
 
 type StatusKind = 'healthy' | 'warning' | 'working'
 
@@ -32,7 +33,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { site
     <main><header className="topbar"><h1>Overview</h1><DashboardTools projects={projects.map(p => ({ id: p.id, name: p.name, domain: p.sites?.[0]?.domain }))} users={subscriptions.map((s: any) => ({ id: s.id, name: s.users?.email ?? '', email: s.users?.email }))} /></header>
       <section className="metrics" aria-label="Portfolio metrics"><article><span>Projects</span><b>{projects.length}</b></article><article><span>Uptime average</span><b className="healthy-number">{uptimeAverage}</b></article><article><span>Active errors</span><b className={activeErrors ? 'warning-number' : ''}>{activeErrors}</b></article><article><span>MRR</span><b>{mrr ? `$${(mrr / 100).toLocaleString()}` : '—'}</b></article></section>
       <section id="projects"><div className="section-heading"><div><h2>Projects</h2><p>Deploy and service health · use ↑ ↓ and Enter to inspect</p></div></div><ProjectTable projects={projects} /></section>
-      <section id="users"><div className="section-heading"><div><h2>Users and billing</h2><p>Subscriptions from the shared identity system</p></div><form className="filters"><select name="site" defaultValue={searchParams.site ?? ''} aria-label="Filter by site"><option value="">All sites</option>{sites.map(site => <option key={site}>{site}</option>)}</select><select name="plan" defaultValue={searchParams.plan ?? ''} aria-label="Filter by plan"><option value="">All plans</option>{plans.map(plan => <option key={plan}>{plan}</option>)}</select><button className="secondary">Filter</button></form></div><div className="table-wrap"><table><thead><tr><th>User email</th><th>Site</th><th>Plan</th><th>Payment status</th></tr></thead><tbody>{filtered.map((item: any) => <tr key={item.id}><td>{item.users?.email}</td><td>{item.sites?.name}</td><td>{item.plan}</td><td><Status value={item.payment_status} /></td></tr>)}{!filtered.length && <tr><td colSpan={4} className="empty">No subscriptions match these filters.</td></tr>}</tbody></table></div></section>
+      <section id="users"><div className="section-heading"><div><h2>Users and billing</h2><p>Pause access per site without disabling the user's central account.</p></div><form className="filters"><select name="site" defaultValue={searchParams.site ?? ''} aria-label="Filter by site"><option value="">All sites</option>{sites.map(site => <option key={site}>{site}</option>)}</select><select name="plan" defaultValue={searchParams.plan ?? ''} aria-label="Filter by plan"><option value="">All plans</option>{plans.map(plan => <option key={plan}>{plan}</option>)}</select><button className="secondary">Filter</button></form></div><SubscriptionTable subscriptions={filtered as any[]} /></section>
     </main>
   </div>
 }

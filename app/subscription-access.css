@@ -1,0 +1,1 @@
+.access-button{height:29px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--text);padding:0 9px;font:12px inherit;cursor:pointer}.access-button:hover{background:var(--active)}.access-button:disabled{opacity:.55;cursor:wait}
