@@ -33,10 +33,11 @@ async function errorCount(project: Project) {
 export async function getDashboardData() {
   const db = getAdminSupabase()
   const [{ data: projects, error: projectError }, { data: subscriptions, error: subscriptionError }] = await Promise.all([
-    db.from('projects').select('id,name,github_owner,github_repo,deploy_target,monitoring_provider,monitoring_check_id,sentry_project_slug,site_id,sites(name,domain)').order('name'),
+    db.from('projects').select('id,name,github_owner,github_repo,deploy_target,monitoring_provider,monitoring_check_id,monitoring_endpoint,sentry_project_slug,site_id,sites(name,domain)').order('name'),
     db.from('subscriptions').select('id,plan,payment_status,renewal_date,mrr_cents,currency,users(email),sites(name)').order('updated_at', { ascending: false }),
   ])
   if (projectError || subscriptionError) throw projectError ?? subscriptionError
-  const health = await Promise.all(((projects ?? []) as Project[]).map(async project => ({ ...project, deploy: await deploymentState(project), uptime: await uptimeState(project), errors: await errorCount(project) })))
+  const normalizedProjects = (projects ?? []).map((project: any) => ({ ...project, sites: Array.isArray(project.sites) ? project.sites : project.sites ? [project.sites] : [] })) as Project[]
+  const health = await Promise.all(normalizedProjects.map(async project => ({ ...project, deploy: await deploymentState(project), uptime: await uptimeState(project), errors: await errorCount(project) })))
   return { projects: health, subscriptions: subscriptions ?? [] }
 }
