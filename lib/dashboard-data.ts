@@ -11,25 +11,19 @@ export type SiteActivity = { id: string; site_id: string; event_type: string; us
 const subscriptionFields = 'id,plan,payment_status,access_override,renewal_date,mrr_cents,currency,users(email),sites(name)'
 const legacySubscriptionFields = 'id,plan,payment_status,renewal_date,users(email),sites(name)'
 
-async function getSubscriptions(db: ReturnType<typeof getAdminSupabase>) {
+export async function getSubscriptionsData() {
+  const db = getAdminSupabase()
   const result = await db.from('subscriptions').select(subscriptionFields).order('updated_at', { ascending: false })
-  if (!result.error) return result
+  if (!result.error) return result.data ?? []
 
   // Migrations 002 and 003 add these optional dashboard fields. During a rolling
   // deploy, keep the overview available until the database migration is applied.
   const missingOptionalField = /access_override|mrr_cents|currency/i.test(result.error.message)
-  if (!missingOptionalField) return result
+  if (!missingOptionalField) throw result.error
 
   const legacy = await db.from('subscriptions').select(legacySubscriptionFields).order('updated_at', { ascending: false })
-  return {
-    ...legacy,
-    data: legacy.data?.map(subscription => ({
-      ...subscription,
-      access_override: 'automatic',
-      mrr_cents: null,
-      currency: null,
-    })),
-  }
+  if (legacy.error) throw legacy.error
+  return (legacy.data ?? []).map(subscription => ({ ...subscription, access_override: 'automatic', mrr_cents: null, currency: null }))
 }
 
 async function safeFetch(url: string, init: RequestInit = {}) {
@@ -55,23 +49,72 @@ async function errorCount(project: Project) {
   const stats = await safeFetch(`https://sentry.io/api/0/projects/${process.env.SENTRY_ORG}/${project.sentry_project_slug}/stats/?stat=received&resolution=1h`, { headers: { Authorization: `Bearer ${process.env.SENTRY_AUTH_TOKEN}` } })
   return Array.isArray(stats) ? stats.reduce((n: number, point: [number, number]) => n + point[1], 0) : null
 }
-export async function getDashboardData() {
+export async function getProjectsHealth(): Promise<ProjectHealth[]> {
   const db = getAdminSupabase()
-  const [{ data: projects, error: projectError }, { data: subscriptions, error: subscriptionError }, { data: sites, error: siteError }, { data: manualAccess, error: accessError }, { data: activity, error: activityError }, { data: users, error: userError }] = await Promise.all([
-    db.from('projects').select('id,name,github_owner,github_repo,deploy_target,monitoring_provider,monitoring_check_id,monitoring_endpoint,sentry_project_slug,site_id,sites(name,domain)').order('name'),
-    getSubscriptions(db),
-    db.from('sites').select('id,name,domain').order('name'),
-    db.from('project_access').select('id,site_id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false }),
-    db.from('site_activity').select('id,site_id,event_type,user_email,anonymous_id,path,created_at,sites(name)').order('created_at', { ascending: false }).limit(100),
-    db.from('users').select('id,email,created_at,subscriptions(plan,payment_status,sites(name))').order('created_at', { ascending: false }),
+  const { data: projects, error } = await db.from('projects').select('id,name,github_owner,github_repo,deploy_target,monitoring_provider,monitoring_check_id,monitoring_endpoint,sentry_project_slug,site_id,sites(name,domain)').order('name')
+  if (error) throw error
+  const normalized = (projects ?? []).map((project: any) => ({ ...project, sites: Array.isArray(project.sites) ? project.sites : project.sites ? [project.sites] : [] })) as Project[]
+  return Promise.all(normalized.map(async project => ({ ...project, deploy: await deploymentState(project), uptime: await uptimeState(project), errors: await errorCount(project) })))
+}
+
+export async function getSitesData() {
+  const { data, error } = await getAdminSupabase().from('sites').select('id,name,domain,tracking_key').order('name')
+  if (error) throw error
+  return data ?? []
+}
+
+async function ignoreMissingTable<T>(query: PromiseLike<{ data: T | null; error: any }>, fallback: NonNullable<T>) {
+  const { data, error } = await query
+  if (error && error.code === '42P01') return fallback
+  if (error) throw error
+  return data ?? fallback
+}
+
+export async function getManualAccessData() {
+  return ignoreMissingTable(
+    getAdminSupabase().from('project_access').select('id,site_id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false }),
+    [] as any[],
+  )
+}
+
+export async function getActivityData(limit = 100) {
+  return ignoreMissingTable(
+    getAdminSupabase().from('site_activity').select('id,site_id,event_type,user_email,anonymous_id,path,created_at,sites(name)').order('created_at', { ascending: false }).limit(limit),
+    [] as any[],
+  )
+}
+
+export async function getSiteUsersData() {
+  return ignoreMissingTable(
+    getAdminSupabase().from('site_users').select('site_id,email,first_seen_at,last_seen_at,sign_in_count').order('last_seen_at', { ascending: false }),
+    [] as any[],
+  )
+}
+
+export async function getProjectConnectionsData() {
+  const { data, error } = await getAdminSupabase().from('projects').select('id,name,site_id,external_supabase_url').order('name')
+  if (error) throw error
+  return (data ?? []).map((p: any) => ({ id: p.id as string, name: p.name as string, siteId: p.site_id as string, connected: Boolean(p.external_supabase_url), supabaseUrl: p.external_supabase_url as string | null }))
+}
+
+export async function getUsersData() {
+  const { data, error } = await getAdminSupabase().from('users').select('id,email,created_at,subscriptions(plan,payment_status,sites(name))').order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
+// Lightweight lookup for the sidebar command palette — avoids paying for the
+// GitHub/Sentry/BetterUptime round trips that getProjectsHealth() makes.
+export async function getNavSearchData() {
+  const db = getAdminSupabase()
+  const [{ data: projects, error: projectError }, { data: users, error: userError }] = await Promise.all([
+    db.from('projects').select('id,name,sites(domain)').order('name'),
+    db.from('users').select('id,email').order('email'),
   ])
-  // A newly deployed dashboard can arrive before its Supabase migration is run.
-  // Keep the rest of the console usable in that short window; the manual-access
-  // section becomes available as soon as migration 004 has been applied.
-  const missingManualAccessTable = accessError?.code === '42P01'
-  const missingActivityTable = activityError?.code === '42P01'
-  if (projectError || subscriptionError || siteError || userError || (accessError && !missingManualAccessTable) || (activityError && !missingActivityTable)) throw projectError ?? subscriptionError ?? siteError ?? userError ?? accessError ?? activityError
-  const normalizedProjects = (projects ?? []).map((project: any) => ({ ...project, sites: Array.isArray(project.sites) ? project.sites : project.sites ? [project.sites] : [] })) as Project[]
-  const health = await Promise.all(normalizedProjects.map(async project => ({ ...project, deploy: await deploymentState(project), uptime: await uptimeState(project), errors: await errorCount(project) })))
-  return { projects: health, subscriptions: subscriptions ?? [], sites: sites ?? [], manualAccess: manualAccess ?? [], activity: activity ?? [], users: users ?? [] }
+  if (projectError) throw projectError
+  if (userError) throw userError
+  return {
+    projects: (projects ?? []).map((p: any) => ({ id: p.id, name: p.name, domain: Array.isArray(p.sites) ? p.sites[0]?.domain : p.sites?.domain })),
+    users: (users ?? []).map((u: any) => ({ id: u.id, name: u.email, email: u.email })),
+  }
 }

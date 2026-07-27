@@ -1,0 +1,51 @@
+:root{--glass-tint:255,255,255;--glass-a:.62;--glass-b:.30;--glass-border:rgba(255,255,255,.6);--glass-sheen:rgba(255,255,255,.75);--glass-shadow:rgba(20,20,30,.12)}
+html[data-theme='dark']{--glass-tint:255,255,255;--glass-a:.11;--glass-b:.045;--glass-border:rgba(255,255,255,.14);--glass-sheen:rgba(255,255,255,.24);--glass-shadow:rgba(0,0,0,.5)}
+
+/* Liquid glass: frosted surface + specular sheen sweep + squishy press, applied to every button-like control. */
+.primary,.secondary,.access-button,.command-button,.theme-toggle,.filters .secondary,.quick-edit-button,.quick-edit button,.login button,.nav-item.active,.copy-button{
+  position:relative;isolation:isolate;overflow:hidden;
+  backdrop-filter:blur(18px) saturate(160%);-webkit-backdrop-filter:blur(18px) saturate(160%);
+  background:linear-gradient(180deg,rgba(var(--glass-tint),var(--glass-a)),rgba(var(--glass-tint),var(--glass-b)));
+  border:1px solid var(--glass-border);
+  box-shadow:0 1px 0 var(--glass-sheen) inset,0 10px 24px -14px var(--glass-shadow);
+  transition:transform .45s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease,background .3s ease,border-color .3s ease;
+}
+.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--button) 88%,rgba(var(--glass-tint),1) 12%),var(--button));color:var(--canvas)}
+.primary::after,.secondary::after,.access-button::after,.command-button::after,.theme-toggle::after,.filters .secondary::after,.quick-edit-button::after,.quick-edit button::after,.login button::after,.copy-button::after{
+  content:'';position:absolute;inset:-40% -20%;pointer-events:none;
+  background:linear-gradient(115deg,transparent 32%,var(--glass-sheen) 50%,transparent 68%);
+  transform:translateX(-130%) rotate(0deg);transition:transform .7s cubic-bezier(.22,1,.36,1);
+}
+.primary:hover::after,.secondary:hover::after,.access-button:hover::after,.command-button:hover::after,.theme-toggle:hover::after,.filters .secondary:hover::after,.quick-edit-button:hover::after,.quick-edit button:hover::after,.login button:hover::after,.copy-button:hover::after{transform:translateX(130%) rotate(0deg)}
+.primary:hover,.secondary:hover,.access-button:hover,.command-button:hover,.theme-toggle:hover,.filters .secondary:hover,.quick-edit-button:hover,.quick-edit button:hover,.login button:hover,.copy-button:hover{border-color:color-mix(in srgb,var(--glass-border) 60%,var(--text) 40%);box-shadow:0 1px 0 var(--glass-sheen) inset,0 14px 30px -14px var(--glass-shadow)}
+.primary:active,.secondary:active,.access-button:active,.command-button:active,.theme-toggle:active,.filters .secondary:active,.quick-edit-button:active,.quick-edit button:active,.login button:active,.copy-button:active,.nav-item:active{transform:scale(.94);border-radius:10px}
+.primary:disabled,.secondary:disabled,.access-button:disabled{transform:none}
+
+/* Sidebar nav: active item floats on a glass pill that eases in as routes change */
+.nav-item{transition:background .35s cubic-bezier(.34,1.56,.64,1),color .2s ease,transform .3s ease}
+.nav-item.active{border-radius:9px;color:var(--text)}
+.nav-item.active>span{color:var(--text)}
+.nav-item:hover:not(.active){transform:translateX(2px)}
+
+/* Metric cards get a soft glass lift on hover */
+.metrics article{position:relative;border-radius:8px;transition:transform .35s cubic-bezier(.34,1.56,.64,1),background .3s ease}
+.metrics article:hover{background:linear-gradient(180deg,rgba(var(--glass-tint),calc(var(--glass-a) * .5)),transparent);transform:translateY(-2px)}
+
+/* Overlays get blurred scrims to match the glass language */
+.palette-backdrop,.detail-backdrop{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.palette,.toast,.detail-panel{backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);background:linear-gradient(180deg,rgba(var(--glass-tint),calc(var(--glass-a) * .9)),rgba(var(--glass-tint),calc(var(--glass-b) * .9))) ,var(--surface)}
+
+/* Route-change entrance: replays because each page's root remounts, the shared shell does not */
+.page-enter{animation:pageIn .5s cubic-bezier(.16,1,.3,1) both}
+@keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Liquid theme switch: sliding pill thumb between sun/moon */
+.theme-toggle.theme-toggle-full{display:inline-flex;align-items:center;gap:10px;height:40px;padding:0 6px;border-radius:999px;width:132px;justify-content:flex-start}
+.theme-toggle-thumb{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:rgba(var(--glass-tint),.9);box-shadow:0 2px 8px var(--glass-shadow);transition:transform .5s cubic-bezier(.34,1.56,.64,1);font-size:14px}
+.theme-toggle.theme-toggle-full[data-mode='dark'] .theme-toggle-thumb{transform:translateX(76px)}
+.theme-toggle-label{color:var(--muted);font-size:12px;white-space:nowrap}
+
+/* Copy-to-clipboard affordance used in Settings */
+.copy-button{height:26px;padding:0 8px;border-radius:5px;font-size:11px;color:var(--text);cursor:pointer}
+
+@media(prefers-reduced-motion:reduce){.primary,.secondary,.access-button,.command-button,.theme-toggle,.filters .secondary,.quick-edit-button,.quick-edit button,.login button,.nav-item,.metrics article,.page-enter,.theme-toggle-thumb,.copy-button{transition:none;animation:none}}

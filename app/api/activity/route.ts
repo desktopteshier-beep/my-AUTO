@@ -18,7 +18,10 @@ export async function POST(request: Request) {
   const db = getAdminSupabase()
   const { data: site } = await db.from('sites').select('id').eq('tracking_key', siteKey).maybeSingle()
   if (!site) return NextResponse.json({ error: 'Unknown site.' }, { status: 404 })
-  const { error } = await db.from('site_activity').insert({ site_id: site.id, event_type: event, anonymous_id: value(input.anonymousId, 128), user_email: value(input.userEmail, 320)?.toLowerCase(), path: value(input.path, 500) })
+  const userEmail = value(input.userEmail, 320)?.toLowerCase()
+  const { error } = await db.from('site_activity').insert({ site_id: site.id, event_type: event, anonymous_id: value(input.anonymousId, 128), user_email: userEmail, path: value(input.path, 500) })
   if (error) return NextResponse.json({ error: 'Could not record activity.' }, { status: 500 })
+  // Keeps the site_users roster current even after old site_activity rows age out.
+  if (event === 'signed_in' && userEmail) await db.rpc('record_site_sign_in', { p_site_id: site.id, p_email: userEmail })
   return new NextResponse(null, { status: 204 })
 }
