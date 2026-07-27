@@ -91,6 +91,32 @@ export async function getSiteUsersData() {
   )
 }
 
+// Distinct calendar days a user shows up in site_activity — "how many days has
+// this person actually used it", not just first/last seen. Reads the full
+// table (not the capped getActivityData() feed) since a rolling 100-row cap
+// would undercount anyone with more than a handful of recorded events.
+export async function getUsageDaysData() {
+  const rows = await ignoreMissingTable(
+    getAdminSupabase().from('site_activity').select('site_id,user_email,created_at').not('user_email', 'is', null),
+    [] as { site_id: string; user_email: string; created_at: string }[],
+  )
+  const perSiteDays = new Map<string, Set<string>>()
+  const perEmailDays = new Map<string, Set<string>>()
+  for (const row of rows) {
+    const email = row.user_email.toLowerCase()
+    const day = row.created_at.slice(0, 10)
+    const siteKey = `${row.site_id}|${email}`
+    if (!perSiteDays.has(siteKey)) perSiteDays.set(siteKey, new Set())
+    perSiteDays.get(siteKey)!.add(day)
+    if (!perEmailDays.has(email)) perEmailDays.set(email, new Set())
+    perEmailDays.get(email)!.add(day)
+  }
+  return {
+    perSite: Object.fromEntries([...perSiteDays].map(([key, days]) => [key, days.size])) as Record<string, number>,
+    perEmail: Object.fromEntries([...perEmailDays].map(([email, days]) => [email, days.size])) as Record<string, number>,
+  }
+}
+
 export async function getProjectConnectionsData() {
   const { data, error } = await getAdminSupabase().from('projects').select('id,name,site_id,external_supabase_url').order('name')
   if (error) throw error
