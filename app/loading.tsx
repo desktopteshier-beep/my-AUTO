@@ -1,0 +1,1 @@
+export default function Loading() { return <div className="loading-shell"><div className="skeleton sidebar-skeleton"/><main><div className="skeleton title-skeleton"/><div className="skeleton metric-skeleton"/><div className="skeleton table-skeleton"/><div className="skeleton table-skeleton"/></main></div> }
