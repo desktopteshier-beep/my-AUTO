@@ -38,7 +38,11 @@ export async function getDashboardData() {
     db.from('sites').select('id,name,domain').order('name'),
     db.from('project_access').select('id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false }),
   ])
-  if (projectError || subscriptionError || siteError || accessError) throw projectError ?? subscriptionError ?? siteError ?? accessError
+  // A newly deployed dashboard can arrive before its Supabase migration is run.
+  // Keep the rest of the console usable in that short window; the manual-access
+  // section becomes available as soon as migration 004 has been applied.
+  const missingManualAccessTable = accessError?.code === '42P01'
+  if (projectError || subscriptionError || siteError || (accessError && !missingManualAccessTable)) throw projectError ?? subscriptionError ?? siteError ?? accessError
   const normalizedProjects = (projects ?? []).map((project: any) => ({ ...project, sites: Array.isArray(project.sites) ? project.sites : project.sites ? [project.sites] : [] })) as Project[]
   const health = await Promise.all(normalizedProjects.map(async project => ({ ...project, deploy: await deploymentState(project), uptime: await uptimeState(project), errors: await errorCount(project) })))
   return { projects: health, subscriptions: subscriptions ?? [], sites: sites ?? [], manualAccess: manualAccess ?? [] }
