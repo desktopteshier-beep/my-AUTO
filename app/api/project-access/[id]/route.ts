@@ -13,9 +13,19 @@ async function isAdmin(request: Request) {
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   if (!await isAdmin(request)) return NextResponse.json({ error: 'Not authorized.' }, { status: 403 })
-  const { accessOverride } = await request.json() as { accessOverride?: string }
-  if (!['automatic', 'paused'].includes(accessOverride ?? '')) return NextResponse.json({ error: 'Invalid access setting.' }, { status: 400 })
-  const { error } = await getAdminSupabase().from('project_access').update({ access_override: accessOverride }).eq('id', params.id)
+  const { accessOverride, accessDurationDays } = await request.json() as { accessOverride?: string; accessDurationDays?: number }
+  const update: Record<string, unknown> = {}
+  if (accessOverride !== undefined) {
+    if (!['automatic', 'paused'].includes(accessOverride)) return NextResponse.json({ error: 'Invalid access setting.' }, { status: 400 })
+    update.access_override = accessOverride
+  }
+  if (accessDurationDays !== undefined) {
+    const days = Number(accessDurationDays)
+    if (!Number.isFinite(days) || days <= 0) return NextResponse.json({ error: 'Enter a positive number of days.' }, { status: 400 })
+    update.access_expires_at = new Date(Date.now() + days * 86400000).toISOString()
+  }
+  if (!Object.keys(update).length) return NextResponse.json({ error: 'Nothing to update.' }, { status: 400 })
+  const { error } = await getAdminSupabase().from('project_access').update(update).eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }

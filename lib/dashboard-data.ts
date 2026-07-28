@@ -71,10 +71,16 @@ async function ignoreMissingTable<T>(query: PromiseLike<{ data: T | null; error:
 }
 
 export async function getManualAccessData() {
-  return ignoreMissingTable(
-    getAdminSupabase().from('project_access').select('id,site_id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false }),
-    [] as any[],
-  )
+  const db = getAdminSupabase()
+  const result = await db.from('project_access').select('id,site_id,email,plan,payment_status,access_override,access_expires_at,sites(name)').order('updated_at', { ascending: false })
+  if (!result.error) return result.data ?? []
+  if (result.error.code === '42P01') return [] as any[]
+
+  // Migration 202607280001 adds access_expires_at. Keep the page available during a rolling deploy.
+  if (!/access_expires_at/i.test(result.error.message)) throw result.error
+  const legacy = await db.from('project_access').select('id,site_id,email,plan,payment_status,access_override,sites(name)').order('updated_at', { ascending: false })
+  if (legacy.error) throw legacy.error
+  return (legacy.data ?? []).map(row => ({ ...row, access_expires_at: null }))
 }
 
 export async function getActivityData(limit = 100) {

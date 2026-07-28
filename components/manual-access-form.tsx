@@ -29,7 +29,8 @@ export function ManualAccessForm({ sites }: { sites: { id: string; name: string;
   async function submit(form: FormData) {
     setSaving(true); setMessage('')
     try {
-      const response = await fetch('/api/project-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: form.get('siteId'), email: form.get('email'), plan: form.get('plan'), paymentStatus: form.get('paymentStatus'), accessOverride: form.get('accessOverride') }) })
+      const durationRaw = form.get('accessDurationDays')
+      const response = await fetch('/api/project-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: form.get('siteId'), email: form.get('email'), plan: form.get('plan'), paymentStatus: form.get('paymentStatus'), accessOverride: form.get('accessOverride'), accessDurationDays: durationRaw ? Number(durationRaw) : undefined }) })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) return setMessage(data.error ?? `Could not save access (${response.status}).`)
       setMessage('Saved. This user can now be checked by the connected app.'); router.refresh()
@@ -51,6 +52,7 @@ export function ManualAccessForm({ sites }: { sites: { id: string; name: string;
     <input name="plan" defaultValue="manual" placeholder="Plan" />
     <select name="paymentStatus" defaultValue="active"><option value="active">Paid / active</option><option value="trialing">Trial</option><option value="past_due">Past due</option><option value="canceled">Unpaid / canceled</option></select>
     <select name="accessOverride" defaultValue="automatic"><option value="automatic">Allow by payment</option><option value="paused">Pause access</option></select>
+    <input name="accessDurationDays" type="number" min="1" step="1" placeholder="Access length (days, optional)" title="Automatically pause this account this many days from now. Leave blank for no expiry." />
     <button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save access'}</button>
     {message && <small>{message}</small>}
     {hint && <small>{hint}</small>}
