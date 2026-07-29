@@ -18,14 +18,17 @@ export async function POST(request: Request) {
   if (!input.siteId || !input.email || !input.paymentStatus) return NextResponse.json({ error: 'Choose a project, enter an email, and select payment status.' }, { status: 400 })
   const days = Number(input.accessDurationDays)
   const accessExpiresAt = Number.isFinite(days) && days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null
-  const { error } = await getAdminSupabase().from('project_access').upsert({
+  const accessRecord: Record<string, unknown> = {
     site_id: input.siteId,
     email: input.email.trim().toLowerCase(),
     plan: input.plan?.trim() || 'manual',
     payment_status: input.paymentStatus,
     access_override: input.accessOverride === 'paused' ? 'paused' : 'automatic',
-    access_expires_at: accessExpiresAt,
-  }, { onConflict: 'site_id,email' })
+  }
+  // The expiry column is optional during a rolling database migration. Avoid
+  // referencing it at all when the admin has not set a fixed access length.
+  if (accessExpiresAt) accessRecord.access_expires_at = accessExpiresAt
+  const { error } = await getAdminSupabase().from('project_access').upsert(accessRecord, { onConflict: 'site_id,email' })
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })
 }
