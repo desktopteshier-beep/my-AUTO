@@ -10,6 +10,7 @@ export function ManualAccessForm({ sites }: { sites: { id: string; name: string;
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [siteId, setSiteId] = useState('')
+  const [priceCurrency, setPriceCurrency] = useState<'usd' | 'tzs'>('usd')
   const [roster, setRoster] = useState<RosterUser[]>([])
   const [rosterSource, setRosterSource] = useState<'live' | 'activity' | null>(null)
   const [rosterLoading, setRosterLoading] = useState(false)
@@ -30,7 +31,9 @@ export function ManualAccessForm({ sites }: { sites: { id: string; name: string;
     setSaving(true); setMessage('')
     try {
       const durationRaw = form.get('accessDurationDays')
-      const response = await fetch('/api/project-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: form.get('siteId'), email: form.get('email'), plan: form.get('plan'), paymentStatus: form.get('paymentStatus'), accessOverride: form.get('accessOverride'), accessDurationDays: durationRaw ? Number(durationRaw) : undefined }) })
+      const priceRaw = form.get('price')
+      const currencyRaw = String(form.get('priceCurrency') ?? 'usd').toLowerCase()
+      const response = await fetch('/api/project-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ siteId: form.get('siteId'), email: form.get('email'), plan: form.get('plan'), paymentStatus: form.get('paymentStatus'), accessOverride: form.get('accessOverride'), accessDurationDays: durationRaw ? Number(durationRaw) : undefined, price: priceRaw ? Number(priceRaw) : undefined, priceCurrency: currencyRaw }) })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) return setMessage(data.error ?? `Could not save access (${response.status}).`)
       setMessage('Saved. This user can now be checked by the connected app.'); router.refresh()
@@ -52,6 +55,13 @@ export function ManualAccessForm({ sites }: { sites: { id: string; name: string;
     <input name="plan" defaultValue="manual" placeholder="Plan" />
     <select name="paymentStatus" defaultValue="active"><option value="active">Paid / active</option><option value="trialing">Trial</option><option value="past_due">Past due</option><option value="canceled">Unpaid / canceled</option></select>
     <select name="accessOverride" defaultValue="automatic"><option value="automatic">Allow by payment</option><option value="paused">Pause access</option></select>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <select name="priceCurrency" value={priceCurrency} onChange={event => setPriceCurrency(event.target.value as 'usd' | 'tzs')}>
+        <option value="usd">USD</option>
+        <option value="tzs">TZS</option>
+      </select>
+      <input name="price" type="number" min="0" step={priceCurrency === 'usd' ? 0.01 : 1} placeholder={`Price (${priceCurrency.toUpperCase()})`} title={`Set a manual per-user price in ${priceCurrency.toUpperCase()}.`} />
+    </div>
     <input name="accessDurationDays" type="number" min="1" step="1" placeholder="Access length (days, optional)" title="Automatically pause this account this many days from now. Leave blank for no expiry." />
     <button className="primary" disabled={saving}>{saving ? 'Saving…' : 'Save access'}</button>
     {message && <small>{message}</small>}
