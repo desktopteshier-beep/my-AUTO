@@ -149,6 +149,51 @@ export async function getProjectConnectionsData() {
   return (data ?? []).map((p: any) => ({ id: p.id as string, name: p.name as string, siteId: p.site_id as string, connected: Boolean(p.external_supabase_url), supabaseUrl: p.external_supabase_url as string | null }))
 }
 
+export type ProjectGains = {
+  siteName: string
+  subscriptionActive: number; subscriptionAtRisk: number; subscriptionByCurrency: Record<string, number>
+  manualActive: number; manualAtRisk: number; manualByCurrency: Record<string, number>
+  totalByCurrency: Record<string, number>
+}
+const atRiskStatus = /past_due|unpaid|canceled|incomplete/i
+
+function addMoney(map: Record<string, number>, currency: string | null | undefined, cents: number | null | undefined) {
+  if (!cents) return
+  const code = String(currency ?? 'usd').toLowerCase()
+  map[code] = (map[code] ?? 0) + cents
+}
+
+// Combines subscription MRR and manual-access pricing per project so a project's
+// total gain isn't hidden behind two separate billing paths (Stripe vs. manual).
+export function computeProjectGains(subscriptions: { payment_status: string; currency?: string | null; mrr_cents?: number | null; sites?: { name?: string } }[], manualAccess: { payment_status: string; access_override: string; price_currency?: string | null; price_cents?: number | null; sites?: { name?: string } }[]): ProjectGains[] {
+  const bySite = new Map<string, ProjectGains>()
+  function row(name: string) {
+    if (!bySite.has(name)) bySite.set(name, { siteName: name, subscriptionActive: 0, subscriptionAtRisk: 0, subscriptionByCurrency: {}, manualActive: 0, manualAtRisk: 0, manualByCurrency: {}, totalByCurrency: {} })
+    return bySite.get(name)!
+  }
+  for (const sub of subscriptions) {
+    const r = row(sub.sites?.name ?? 'Unknown project')
+    if (sub.payment_status === 'active') {
+      r.subscriptionActive += 1
+      addMoney(r.subscriptionByCurrency, sub.currency, sub.mrr_cents)
+      addMoney(r.totalByCurrency, sub.currency, sub.mrr_cents)
+    } else if (atRiskStatus.test(sub.payment_status ?? '')) {
+      r.subscriptionAtRisk += 1
+    }
+  }
+  for (const access of manualAccess) {
+    const r = row(access.sites?.name ?? 'Unknown project')
+    if (access.payment_status === 'active' && access.access_override !== 'paused') {
+      r.manualActive += 1
+      addMoney(r.manualByCurrency, access.price_currency, access.price_cents)
+      addMoney(r.totalByCurrency, access.price_currency, access.price_cents)
+    } else if (atRiskStatus.test(access.payment_status ?? '')) {
+      r.manualAtRisk += 1
+    }
+  }
+  return [...bySite.values()].sort((a, b) => a.siteName.localeCompare(b.siteName))
+}
+
 export async function getUsersData() {
   const { data, error } = await getAdminSupabase().from('users').select('id,email,created_at,subscriptions(plan,payment_status,sites(name))').order('created_at', { ascending: false })
   if (error) throw error
