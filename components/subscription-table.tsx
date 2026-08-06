@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Avatar, Tag } from './avatar'
 type Subscription = { id: string; plan: string; payment_status: string; access_override?: 'automatic' | 'paused'; users?: { email?: string }; sites?: { name?: string } }
 function Status({ value, paused }: { value: string; paused?: boolean }) { const issue = paused || /past_due|unpaid|canceled|incomplete/.test(value); return <span className={`status ${issue ? 'warning' : 'healthy'}`}><span>{issue ? '!' : 'OK'}</span>{paused ? 'Access paused' : value}</span> }
 export function SubscriptionTable({ subscriptions }: { subscriptions: Subscription[] }) { const router = useRouter(); const [busy, setBusy] = useState<string | null>(null)
@@ -18,4 +19,4 @@ export function SubscriptionTable({ subscriptions }: { subscriptions: Subscripti
       setBusy(null)
     }
   }
-  return <div className="table-wrap"><table><thead><tr><th>User email</th><th>Site</th><th>Plan</th><th>Payment status</th><th>Access</th></tr></thead><tbody>{subscriptions.map(item => <tr key={item.id}><td>{item.users?.email}</td><td>{item.sites?.name}</td><td>{item.plan}</td><td><Status value={item.payment_status} /></td><td><button className="access-button" disabled={busy === item.id} onClick={() => changeAccess(item)}>{busy === item.id ? 'Saving...' : item.access_override === 'paused' ? 'Restore access' : 'Pause access'}</button></td></tr>)}{!subscriptions.length && <tr><td colSpan={5} className="empty"><strong>No subscriptions yet</strong><p>Users will appear here after they subscribe to a site.</p></td></tr>}</tbody></table></div> }
+  return <div className="table-wrap"><table><thead><tr><th>User email</th><th>Site</th><th>Plan</th><th>Payment status</th><th>Access</th></tr></thead><tbody>{subscriptions.map(item => <tr key={item.id}><td><span className="who-cell"><Avatar name={item.users?.email ?? ''} />{item.users?.email}</span></td><td>{item.sites?.name}</td><td>{item.plan && <Tag value={item.plan} />}</td><td><Status value={item.payment_status} /></td><td><button className="access-button" disabled={busy === item.id} onClick={() => changeAccess(item)}>{busy === item.id ? 'Saving...' : item.access_override === 'paused' ? 'Restore access' : 'Pause access'}</button></td></tr>)}{!subscriptions.length && <tr><td colSpan={5} className="empty"><strong>No subscriptions yet</strong><p>Users will appear here after they subscribe to a site.</p></td></tr>}</tbody></table></div> }

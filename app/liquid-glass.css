@@ -10,7 +10,7 @@ html[data-theme='dark']{--glass-tint:255,255,255;--glass-a:.11;--glass-b:.045;--
   box-shadow:0 1px 0 var(--glass-sheen) inset,0 10px 24px -14px var(--glass-shadow);
   transition:transform .45s cubic-bezier(.34,1.56,.64,1),box-shadow .3s ease,background .3s ease,border-color .3s ease;
 }
-.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--button) 88%,rgba(var(--glass-tint),1) 12%),var(--button));color:var(--canvas)}
+.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 88%,rgba(var(--glass-tint),1) 12%),var(--accent));color:var(--accent-ink)}
 .primary::after,.secondary::after,.access-button::after,.command-button::after,.theme-toggle::after,.filters .secondary::after,.quick-edit-button::after,.quick-edit button::after,.login button::after,.copy-button::after{
   content:'';position:absolute;inset:-40% -20%;pointer-events:none;
   background:linear-gradient(115deg,transparent 32%,var(--glass-sheen) 50%,transparent 68%);

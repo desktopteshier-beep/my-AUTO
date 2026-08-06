@@ -91,6 +91,25 @@ export async function getActivityData(limit = 100) {
   )
 }
 
+// Buckets already-fetched activity rows into calendar-day counts for the Overview trend chart.
+export function bucketActivityByDay(rows: { created_at: string }[], days = 7) {
+  const counts = new Map<string, number>()
+  const order: string[] = []
+  const today = new Date()
+  for (let i = days - 1; i >= 0; i--) {
+    const day = new Date(today)
+    day.setUTCDate(day.getUTCDate() - i)
+    const key = day.toISOString().slice(0, 10)
+    order.push(key)
+    counts.set(key, 0)
+  }
+  for (const row of rows) {
+    const key = row.created_at.slice(0, 10)
+    if (counts.has(key)) counts.set(key, counts.get(key)! + 1)
+  }
+  return order.map(key => ({ label: new Date(`${key}T00:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }), count: counts.get(key) ?? 0 }))
+}
+
 export async function getSiteUsersData() {
   return ignoreMissingTable(
     getAdminSupabase().from('site_users').select('site_id,email,first_seen_at,last_seen_at,sign_in_count').order('last_seen_at', { ascending: false }),
